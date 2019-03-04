@@ -1,2 +1,2 @@
 # ng.my-mms.worldpay.int
-worldpay application
+Worldpay gateway connector
