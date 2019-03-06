@@ -75,12 +75,17 @@ public class BeanProvider {
     	
         return new IPeService() {
            @Override
-           public GatewayAuthorizeResponse authorize(GatewayAuthorizationRequest request) throws Exception {
+           public GatewayAuthorizeResponse authorize(GatewayAuthorizationRequest request) {
             	
         	   String username = null;
         	   String password = null;
         	   String plainCreds = null;
         	   String endpoint = null;
+        	   GatewayAuthorizeResponse gatewayAuthorizeResponse = null;
+        	   
+        	try{
+        		   
+        	   logger.log(Level.INFO,"==inside authorize method implementation=="+request);	   
         	   
         	   if(request != null){
         	    List<KeyValueTuple> configurationList = request.getContext().getConfiguration();
@@ -108,8 +113,10 @@ public class BeanProvider {
         	     }
         	    }
             	
-            	GatewayAuthorizeResponse gatewayAuthorizeResponse = new  GatewayAuthorizeResponse();
-            	logger.log(Level.INFO,"==inside authorize method implementation==");
+            	gatewayAuthorizeResponse = new  GatewayAuthorizeResponse();
+            	logger.log(Level.INFO,"==inside authorize method implementation username=="+username);
+            	logger.log(Level.INFO,"==inside authorize method implementation password=="+password);
+            	logger.log(Level.INFO,"==inside authorize method implementation endpoint=="+endpoint);
             	
             	if(username != null && password != null)
             	 plainCreds = username + WorldpayConstants.COLON + password;
@@ -121,16 +128,22 @@ public class BeanProvider {
             	byte[] base64CredsBytes = Base64.getEncoder().encode(plainCredsBytes);
             	
             	//Added condition for testing of API with dummy data
-            	String creditRequestXml = request != null ? createXmlRequest(request) : createXmlRequestWithDummyData();
+            	String worldpayRequestXml = request != null ? createWorldpayRequest(request) : createWorldpayRequestWithDummyData();
+            	
+            	
+            	logger.log(Level.INFO,"==worldpayRequestXml=="+worldpayRequestXml);
             	
             	String base64Creds = new String(base64CredsBytes);
             	HttpHeaders headers = new HttpHeaders();
             	headers.add("Authorization", "Basic " + base64Creds);
-            	HttpEntity<String> request1 = new HttpEntity<String>(creditRequestXml,headers);
+            	HttpEntity<String> request1 = new HttpEntity<String>(worldpayRequestXml,headers);
             	
             	String url = endpoint != null ? endpoint : WorldpayConstants.ENDPOINT;
             	
+            	logger.log(Level.INFO,"==url=="+url);
+            	
             	ResponseEntity<String> serviceResponse = restTemplate.postForEntity(url, request1, String.class);
+            	
             	logger.log(Level.INFO,"==authorize method response=="+serviceResponse);
             	
             	if(serviceResponse!=null) {
@@ -150,6 +163,11 @@ public class BeanProvider {
             			}
             		}
             	}
+        	   }
+        	   catch(Exception e){
+        		   e.printStackTrace();
+        		   logger.log(Level.SEVERE,"==Exception in authorize method implementation=="+e.getMessage());
+        	   }
             	
              // logger.log(Level.INFO,"==gatewayAuthorizeResponse=="+gatewayAuthorizeResponse.getResponseText());
               return gatewayAuthorizeResponse;
@@ -184,9 +202,13 @@ public class BeanProvider {
      * @return
      * Generate XML request for worldpay authorization call
      */
-    private String createXmlRequest(GatewayAuthorizationRequest request) {
+    private String createWorldpayRequest(GatewayAuthorizationRequest request) {
+    	
     	String output = "";
-				try {
+				
+    	      try {
+					
+					logger.log(Level.INFO,"==inside createWorldpayRequest=="+request);	
 					DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
 					DocumentBuilder dBuilder = dbFactory.newDocumentBuilder();
 					Document doc = dBuilder.newDocument();
@@ -236,13 +258,13 @@ public class BeanProvider {
 					 Element paymentDetails = doc.createElement("paymentDetails");
 				     order.appendChild(paymentDetails);
 				     
-				     
 				     // It's a dynamic value and keep it hardcoded for CC for now
 				     Element paymentMethod = doc.createElement("VISA-SSL");
 				     paymentDetails.appendChild(paymentMethod);
 				     
 				     // Credit card number
 				     Element cardNumber = doc.createElement("cardNumber");
+				     logger.log(Level.INFO,"==inside createWorldpayRequest cc no.=="+request.getCard().getNumberPart());
 				     cardNumber.appendChild(doc.createTextNode(request.getCard().getNumberPart()));
 				     paymentMethod.appendChild(cardNumber);
 				     
@@ -358,17 +380,17 @@ public class BeanProvider {
 						        transformer.transform(new DOMSource(doc), new StreamResult(writer));
 						         output = writer.getBuffer().toString();
 						} catch (TransformerException e) {
-							logger.log(Level.SEVERE, "==TransformerException in createXmlRequest==", e.getMessage());
 							e.printStackTrace();
+							logger.log(Level.SEVERE, "==TransformerException in createWorldpayRequest==", e.getMessage());
 						}
 					} catch (TransformerConfigurationException e) {
-						logger.log(Level.SEVERE, "==TransformerConfigurationException in createXmlRequest==", e.getMessage());
 						e.printStackTrace();
+						logger.log(Level.SEVERE, "==TransformerConfigurationException in createWorldpayRequest==", e.getMessage());
 					}
 			         
 				} catch (ParserConfigurationException e) {
-					logger.log(Level.SEVERE, "==ParserConfigurationException in createXmlRequest==", e.getMessage());
 					e.printStackTrace();
+					logger.log(Level.SEVERE, "==ParserConfigurationException in createWorldpayRequest==", e.getMessage());
 				}
     	        
 		return output;
@@ -379,9 +401,13 @@ public class BeanProvider {
      * @return
      * Generate XML request(hardcoded data) for worldpay authorization call
      */
-    private String createXmlRequestWithDummyData() {
+    private String createWorldpayRequestWithDummyData() {
+    	
     	String output = "";
-				try {
+				
+    	           try {
+					
+					logger.log(Level.INFO,"==inside createWorldpayRequestWithDummyData==");	
 					DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
 					DocumentBuilder dBuilder = dbFactory.newDocumentBuilder();
 					Document doc = dBuilder.newDocument();
@@ -544,16 +570,17 @@ public class BeanProvider {
 						        transformer.transform(new DOMSource(doc), new StreamResult(writer));
 						         output = writer.getBuffer().toString();
 						} catch (TransformerException e) {
-							logger.log(Level.SEVERE, "==TransformerException in createXmlRequest==", e.getMessage());
 							e.printStackTrace();
+							logger.log(Level.SEVERE, "==TransformerException in createWorldpayRequestWithDummyData==", e.getMessage());
 						}
 					} catch (TransformerConfigurationException e) {
-						logger.log(Level.SEVERE, "==TransformerConfigurationException in createXmlRequest==", e.getMessage());
 						e.printStackTrace();
+						logger.log(Level.SEVERE, "==TransformerConfigurationException in createWorldpayRequestWithDummyData==", e.getMessage());
 					}
 			         
 				} catch (ParserConfigurationException e) {
-					logger.log(Level.SEVERE, "==ParserConfigurationException in createXmlRequest==", e.getMessage());
+					e.printStackTrace();
+					logger.log(Level.SEVERE, "==ParserConfigurationException in createWorldpayRequestWithDummyData==", e.getMessage());
 				}
     	        
 		return output;

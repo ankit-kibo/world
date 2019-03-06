@@ -146,13 +146,25 @@ public class PeController {
     //It will work once integrate this application with sandbox
     @RequestMapping(method = RequestMethod.POST, produces = "application/json", value = "/api/payments/authorize")
     @ResponseBody
-    public GatewayAuthorizeResponse authorize(@RequestBody GatewayAuthorizationRequest authorizeRequest) throws Exception {
+    public GatewayAuthorizeResponse authorize(@RequestBody GatewayAuthorizationRequest authorizeRequest) {
         
-        GatewayAuthorizeResponse gatewayAuthorizeResponse = peService.authorize(authorizeRequest);
+    	GatewayAuthorizeResponse gatewayAuthorizeResponse = null;
     	
-        logger.log(Level.INFO,"==ORDER_CODE=="+gatewayAuthorizeResponse.getAuthCode());
-    	logger.log(Level.INFO,"==PAYMENT_METHOD=="+gatewayAuthorizeResponse.getResponseCode());
-    	logger.log(Level.INFO,"==AUTH_RESPONSE=="+gatewayAuthorizeResponse.getResponseText());
+    	try{
+    		
+    	  logger.log(Level.INFO,"==inside authorize method of PeController==");
+    	  logger.log(Level.INFO,"==inside authorize method of PeController authorizeRequest=="+authorizeRequest);
+    		
+          gatewayAuthorizeResponse = peService.authorize(authorizeRequest);
+    	
+          logger.log(Level.INFO,"==ORDER_CODE=="+gatewayAuthorizeResponse.getAuthCode());
+    	  logger.log(Level.INFO,"==PAYMENT_METHOD=="+gatewayAuthorizeResponse.getResponseCode());
+    	  logger.log(Level.INFO,"==AUTH_RESPONSE=="+gatewayAuthorizeResponse.getResponseText());
+    	}
+    	catch(Exception e){
+    	  e.printStackTrace();
+    	  logger.log(Level.SEVERE,"==Exception in authorize method=="+e.getMessage());
+    	}
     	
     	return gatewayAuthorizeResponse;
     	
@@ -160,16 +172,30 @@ public class PeController {
     }
     
     //Created for testing with hardcoded request data xml
-    @RequestMapping(method = RequestMethod.GET, produces = "application/json", value = "/api/payments/authorize")
+    @RequestMapping(method = RequestMethod.GET, produces = "application/json", value = "/api/payments/authorizetest")
     @ResponseBody
-    public GatewayAuthorizeResponse authorize() throws Exception {
+    public GatewayAuthorizeResponse authorize(){
+    	
+    	GatewayAuthorizeResponse gatewayAuthorizeResponse = null;
+    	
+    	try{
+    	
+    	logger.log(Level.INFO,"==inside authorizetest method of PeController==");
+   	    logger.log(Level.INFO,"==inside authorizetest method of PeController authorizeRequest==");
     	
     	GatewayAuthorizationRequest authorizeRequest = null;
-    	GatewayAuthorizeResponse gatewayAuthorizeResponse = peService.authorize(authorizeRequest);
+    	gatewayAuthorizeResponse = peService.authorize(authorizeRequest);
     	
     	logger.log(Level.INFO,"==ORDER_CODE=="+gatewayAuthorizeResponse.getAuthCode());
     	logger.log(Level.INFO,"==PAYMENT_METHOD=="+gatewayAuthorizeResponse.getResponseCode());
     	logger.log(Level.INFO,"==AUTH_RESPONSE=="+gatewayAuthorizeResponse.getResponseText());
+    	
+    	
+    	}
+    	catch(Exception e){
+    	  e.printStackTrace();
+    	  logger.log(Level.SEVERE,"==Exception in authorizetest method=="+e.getMessage());
+    	}
     	
     	return gatewayAuthorizeResponse;
     	
