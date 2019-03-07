@@ -38,8 +38,8 @@ public class AdapterContextOverride extends AdapterContext implements IHasMap {
     public void setPropertiesFromMap() throws Exception {
         if(configurationMap == null)
             configurationMap = new HashMap<>();
-        testingUrl = IHasMap.getStringFromMap(configurationMap, "testingUrl",true, "configuration");
-        productionUrl = IHasMap.getStringFromMap(configurationMap, "productionUrl",true, "configuration");
+        testingUrl = IHasMap.getStringFromMap(configurationMap, "testingUrl",false, "configuration");
+        productionUrl = IHasMap.getStringFromMap(configurationMap, "productionUrl",false, "configuration");
     }
 
     @Override

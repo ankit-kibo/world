@@ -2,6 +2,7 @@ package com.kibo.pegateway;
 
 import java.io.StringReader;
 import java.io.StringWriter;
+import java.text.NumberFormat;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -32,6 +33,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 import org.w3c.dom.Attr;
 import org.w3c.dom.DOMImplementation;
@@ -41,7 +43,6 @@ import org.w3c.dom.Element;
 import org.xml.sax.InputSource;
 
 import com.kibo.pegateway.config.WorldpayConstants;
-//import com.kibo.pegateway.config.WorldpayConstants;
 import com.mozu.api.contracts.paymentservice.extensibility.v1.CaptureRequest;
 import com.mozu.api.contracts.paymentservice.extensibility.v1.GatewayAuthorizationRequest;
 import com.mozu.api.contracts.paymentservice.extensibility.v1.GatewayAuthorizeResponse;
@@ -81,6 +82,7 @@ public class BeanProvider {
         	   String password = null;
         	   String plainCreds = null;
         	   String endpoint = null;
+        	   String configuration = null;
         	   GatewayAuthorizeResponse gatewayAuthorizeResponse = null;
         	   
         	try{
@@ -88,7 +90,7 @@ public class BeanProvider {
         	   logger.log(Level.INFO,"==inside authorize method implementation=="+request);	   
         	   
         	   if(request != null){
-        	    List<KeyValueTuple> configurationList = request.getContext().getConfiguration();
+        	    List<KeyValueTuple> configurationList = request.getContext().getSettings();
         	    
         	    if(configurationList != null){
         	     Iterator<KeyValueTuple> itr = configurationList.iterator();
@@ -98,25 +100,26 @@ public class BeanProvider {
         	    	String key = KeyValueTuple.getKey();
         	    	
         	    	if(key.equalsIgnoreCase("username")){
-           	    	  username = (String) KeyValueTuple.getValue();
+           	    	   username = (String) KeyValueTuple.getValue();
            	    	}
         	    	else if(key.equalsIgnoreCase("password")){
-           	    	  password = (String) KeyValueTuple.getValue();
+           	    	   password = (String) KeyValueTuple.getValue();
            	    	}
         	    	else if(key.equalsIgnoreCase("endpoint")){
-           	    	  endpoint = (String) KeyValueTuple.getValue();
+           	    	   endpoint = (String) KeyValueTuple.getValue();
            	    	}
         	    	else if(key.equalsIgnoreCase("configuration")){
-              	    	 String configuration = (String) KeyValueTuple.getValue();
+              	       configuration = (String) KeyValueTuple.getValue();
               	    }
+        	       }
         	      }
-        	     }
         	    }
             	
             	gatewayAuthorizeResponse = new  GatewayAuthorizeResponse();
             	logger.log(Level.INFO,"==inside authorize method implementation username=="+username);
             	logger.log(Level.INFO,"==inside authorize method implementation password=="+password);
             	logger.log(Level.INFO,"==inside authorize method implementation endpoint=="+endpoint);
+            	logger.log(Level.INFO,"==inside authorize method implementation configuration=="+configuration);
             	
             	if(username != null && password != null)
             	 plainCreds = username + WorldpayConstants.COLON + password;
@@ -129,7 +132,6 @@ public class BeanProvider {
             	
             	//Added condition for testing of API with dummy data
             	String worldpayRequestXml = request != null ? createWorldpayRequest(request) : createWorldpayRequestWithDummyData();
-            	
             	
             	logger.log(Level.INFO,"==worldpayRequestXml=="+worldpayRequestXml);
             	
@@ -162,11 +164,17 @@ public class BeanProvider {
                     	  gatewayAuthorizeResponse.setResponseText(pareseResponse.get(WorldpayConstants.AUTH_RESPONSE) != null ? pareseResponse.get(WorldpayConstants.AUTH_RESPONSE).toString() : "");
             			}
             		}
-            	}
+            	 }
         	   }
+        	   catch(ResourceAccessException rae){
+        		 rae.printStackTrace();
+        		 gatewayAuthorizeResponse.setResponseText("Failed");
+     		     logger.log(Level.SEVERE,"==ResourceAccessException in authorize method implementation=="+rae.getMessage());
+     	       }
         	   catch(Exception e){
-        		   e.printStackTrace();
-        		   logger.log(Level.SEVERE,"==Exception in authorize method implementation=="+e.getMessage());
+        		  e.printStackTrace();
+        		  gatewayAuthorizeResponse.setResponseText("Failed");
+        		  logger.log(Level.SEVERE,"==Exception in authorize method implementation=="+e.getMessage());
         	   }
             	
              // logger.log(Level.INFO,"==gatewayAuthorizeResponse=="+gatewayAuthorizeResponse.getResponseText());
@@ -231,6 +239,8 @@ public class BeanProvider {
 					Element order = doc.createElement("order");
 					submit.appendChild(order);
 					
+					logger.log(Level.INFO,"==inside createWorldpayRequest customerID=="+request.getShopper().getCustomerId());
+					
 					Attr orderAttr = doc.createAttribute("orderCode");
 					orderAttr.setValue(request.getShopper().getCustomerId()+System.currentTimeMillis());
 			        order.setAttributeNode(orderAttr);
@@ -252,7 +262,16 @@ public class BeanProvider {
 					amount.setAttributeNode(exponentAttr);
 					
 				    Attr valueAttr = doc.createAttribute("value");
-				    valueAttr.setValue(String.valueOf(request.getAmount()*100));
+				    
+				    NumberFormat format = NumberFormat.getInstance();
+                    format.setMinimumFractionDigits(2);
+                    format.setMaximumFractionDigits(2);
+                    format.setGroupingUsed(false);
+                    String formattedAmount = format.format(request.getAmount()).replace(".", "");
+                    
+                    logger.log(Level.INFO,"==inside createWorldpayRequest formattedAmount=="+formattedAmount);
+				    
+				    valueAttr.setValue(String.valueOf(formattedAmount));
 					amount.setAttributeNode(valueAttr);
 			        
 					 Element paymentDetails = doc.createElement("paymentDetails");
@@ -282,8 +301,11 @@ public class BeanProvider {
 				     yearAttr.setValue(String.valueOf(request.getCard().getExpireYear()));
 				     date.setAttributeNode(yearAttr);
 				     
+				     logger.log(Level.INFO,"==inside createWorldpayRequest cardHolderName=="+request.getCard().getCardHolderName());
+				     
 				     Element cardHolderName = doc.createElement("cardHolderName");
 				     cardHolderName.appendChild(doc.createTextNode(request.getCard().getCardHolderName()));
+				    //cardHolderName.appendChild(doc.createTextNode("Test"));
 				     paymentMethod.appendChild(cardHolderName);
 				     
 				     Element cvc = doc.createElement("cvc");
@@ -296,70 +318,98 @@ public class BeanProvider {
 				     Element address = doc.createElement("address");
 				     cardAddress.appendChild(address);
 				     
-				     Element address1 = doc.createElement("address1");
-				     address1.appendChild(doc.createTextNode(request.getShopper().getAddress().getLine1()));
-				     address.appendChild(address1);
 				     
-				     Element address2 = doc.createElement("address2");
-				     address2.appendChild(doc.createTextNode(request.getShopper().getAddress().getLine2()));
-				     address.appendChild(address2);
+				     if(request.getShopper().getAddress().getLine1() != null){
+				      Element address1 = doc.createElement("address1");
+				      address1.appendChild(doc.createTextNode(request.getShopper().getAddress().getLine1()));
+				      address.appendChild(address1);
+				     }
 				     
-				     Element address3 = doc.createElement("address3");
-				     address3.appendChild(doc.createTextNode(request.getShopper().getAddress().getLine3()));
-				     address.appendChild(address3);
+				     if(request.getShopper().getAddress().getLine2() != null){
+				      Element address2 = doc.createElement("address2");
+				      address2.appendChild(doc.createTextNode(request.getShopper().getAddress().getLine2()));
+				      address.appendChild(address2);
+				     }
 				     
-				     Element postalCode = doc.createElement("postalCode");
-				     postalCode.appendChild(doc.createTextNode(request.getShopper().getAddress().getPostalCode()));
-				     address.appendChild(postalCode);
+				     if(request.getShopper().getAddress().getLine3() != null){
+				      Element address3 = doc.createElement("address3");
+				      address3.appendChild(doc.createTextNode(request.getShopper().getAddress().getLine3()));
+				      address.appendChild(address3);
+				     }
 				     
-				     Element city = doc.createElement("city");
-				     city.appendChild(doc.createTextNode(request.getShopper().getAddress().getCity()));
-				     address.appendChild(city);
+				     if(request.getShopper().getAddress().getPostalCode() != null){
+				      Element postalCode = doc.createElement("postalCode");
+				      postalCode.appendChild(doc.createTextNode(request.getShopper().getAddress().getPostalCode()));
+				      address.appendChild(postalCode);
+				     }
 				     
-				     Element state = doc.createElement("state");
-				     state.appendChild(doc.createTextNode(request.getShopper().getAddress().getState()));
-				     address.appendChild(state);
+				     if(request.getShopper().getAddress().getCity() != null){
+				      Element city = doc.createElement("city");
+				      city.appendChild(doc.createTextNode(request.getShopper().getAddress().getCity()));
+				      address.appendChild(city);
+				     }
 				     
-				     Element countryCode = doc.createElement("countryCode");
-				     countryCode.appendChild(doc.createTextNode(request.getShopper().getAddress().getCountry()));
-				     address.appendChild(countryCode);
+				     if(request.getShopper().getAddress().getState() != null){
+				      Element state = doc.createElement("state");
+				      state.appendChild(doc.createTextNode(request.getShopper().getAddress().getState()));
+				      address.appendChild(state);
+				     }
 				     
-				     // There are two methods for phone number
-				     Element telephoneNumber = doc.createElement("telephoneNumber");
-				     telephoneNumber.appendChild(doc.createTextNode(request.getShopper().getPhoneNumber()));
-				     address.appendChild(telephoneNumber);
+				     if(request.getShopper().getAddress().getCountry() != null){
+				      Element countryCode = doc.createElement("countryCode");
+				      countryCode.appendChild(doc.createTextNode(request.getShopper().getAddress().getCountry()));
+				      address.appendChild(countryCode);
+				     }
+				     
+				  // There are two methods for phone number
+				     String phoneNumber = request.getShopper().getContact().getPhone() != null ? request.getShopper().getContact().getPhone() : request.getShopper().getPhoneNumber();
+				     
+				     if(phoneNumber != null){
+				      Element telephoneNumber = doc.createElement("telephoneNumber");
+				      telephoneNumber.appendChild(doc.createTextNode(request.getShopper().getPhoneNumber()));
+				      //telephoneNumber.appendChild(doc.createTextNode("1234567890"));
+				      address.appendChild(telephoneNumber);
+				     }
 				     
 				     Element session = doc.createElement("session");
 				     paymentDetails.appendChild(session);
 				     
-				     Attr shopperIPAddress = doc.createAttribute("shopperIPAddress");
-				     shopperIPAddress.setValue(request.getShopper().getRequestorIp());
-				     session.setAttributeNode(shopperIPAddress);
+				     if(request.getShopper().getRequestorIp() != null){
+				      Attr shopperIPAddress = doc.createAttribute("shopperIPAddress");
+				      shopperIPAddress.setValue(request.getShopper().getRequestorIp());
+				      session.setAttributeNode(shopperIPAddress);
+				     }
 				     
 				     // 6383A29AE40E5839DCA4D17EE86A2495.adm-mymms-rev2v162-int001 
 				     // pass the custmer id
-				     Attr idAttr = doc.createAttribute("id");
-				     idAttr.setValue(request.getShopper().getCustomerId());
-				     session.setAttributeNode(idAttr);
+				     if(request.getShopper().getCustomerId() != null){
+				      Attr idAttr = doc.createAttribute("id");
+				      idAttr.setValue(request.getShopper().getCustomerId());
+				      session.setAttributeNode(idAttr);
+				     }
 				     
 				     Element shopper = doc.createElement("shopper");
 				     order.appendChild(shopper);
 				     
-				     Element shopperEmailAddress = doc.createElement("shopperEmailAddress");
-				     shopperEmailAddress.appendChild(doc.createTextNode(request.getShopper().getContact().getEmail()));
-				     shopper.appendChild(shopperEmailAddress);
+				     if(request.getShopper().getContact().getEmail() != null){
+				      Element shopperEmailAddress = doc.createElement("shopperEmailAddress");
+				      shopperEmailAddress.appendChild(doc.createTextNode(request.getShopper().getContact().getEmail()));
+				      shopper.appendChild(shopperEmailAddress);
+				     }
 				     
 				     Element browser = doc.createElement("browser");
 				     shopper.appendChild(browser);
 				     
 				     Element acceptHeader = doc.createElement("acceptHeader");
-				     acceptHeader.appendChild(doc.createTextNode("text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8"));
+				     acceptHeader.appendChild(doc.createTextNode(WorldpayConstants.ACCEPT_HEADER));
 				     browser.appendChild(acceptHeader);
 				     
-				     //Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/72.0.3626.109 Safari/537.36
-				     Element userAgentHeader = doc.createElement("userAgentHeader");
-				     userAgentHeader.appendChild(doc.createTextNode(request.getShopper().getRequestorUserAgent()));
-				     browser.appendChild(userAgentHeader);
+				     if(request.getShopper().getRequestorUserAgent() != null){
+				    	 Element userAgentHeader = doc.createElement("userAgentHeader");
+						 userAgentHeader.appendChild(doc.createTextNode(request.getShopper().getRequestorUserAgent()));
+						 //userAgentHeader.appendChild(doc.createTextNode("Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/72.0.3626.109 Safari/537.36"));
+						 browser.appendChild(userAgentHeader);
+				     }
 				     
 				     Element statementNarrative = doc.createElement("statementNarrative");
 				     statementNarrative.appendChild(doc.createTextNode(WorldpayConstants.SITECODE_US));
@@ -544,7 +594,7 @@ public class BeanProvider {
 				     shopper.appendChild(browser);
 				     
 				     Element acceptHeader = doc.createElement("acceptHeader");
-				     acceptHeader.appendChild(doc.createTextNode("text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8"));
+				     acceptHeader.appendChild(doc.createTextNode(WorldpayConstants.ACCEPT_HEADER));
 				     browser.appendChild(acceptHeader);
 				     
 				     Element userAgentHeader = doc.createElement("userAgentHeader");

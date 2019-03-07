@@ -150,6 +150,8 @@ public class PeController {
         
     	GatewayAuthorizeResponse gatewayAuthorizeResponse = null;
     	
+    	//authorizeRequest.getda
+    	
     	try{
     		
     	  logger.log(Level.INFO,"==inside authorize method of PeController==");
@@ -180,16 +182,15 @@ public class PeController {
     	
     	try{
     	
-    	logger.log(Level.INFO,"==inside authorizetest method of PeController==");
-   	    logger.log(Level.INFO,"==inside authorizetest method of PeController authorizeRequest==");
+    	 logger.log(Level.INFO,"==inside authorizetest method of PeController==");
+   	     logger.log(Level.INFO,"==inside authorizetest method of PeController authorizeRequest==");
     	
-    	GatewayAuthorizationRequest authorizeRequest = null;
-    	gatewayAuthorizeResponse = peService.authorize(authorizeRequest);
+    	 GatewayAuthorizationRequest authorizeRequest = null;
+    	 gatewayAuthorizeResponse = peService.authorize(authorizeRequest);
     	
-    	logger.log(Level.INFO,"==ORDER_CODE=="+gatewayAuthorizeResponse.getAuthCode());
-    	logger.log(Level.INFO,"==PAYMENT_METHOD=="+gatewayAuthorizeResponse.getResponseCode());
-    	logger.log(Level.INFO,"==AUTH_RESPONSE=="+gatewayAuthorizeResponse.getResponseText());
-    	
+    	 logger.log(Level.INFO,"==AUTH_CODE=="+gatewayAuthorizeResponse.getAuthCode());
+    	 logger.log(Level.INFO,"==RESPONSE_CODE=="+gatewayAuthorizeResponse.getResponseCode());
+    	 logger.log(Level.INFO,"==RESPONSE_TEXT=="+gatewayAuthorizeResponse.getResponseText());
     	
     	}
     	catch(Exception e){

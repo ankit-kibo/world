@@ -29,5 +29,7 @@ public interface WorldpayConstants {
 	public static final String PUBLICID = "-//WorldPay//DTD WorldPay PaymentService v1//EN";
 	
 	public static final String SYSTEMID = "http://dtd.worldpay.com/paymentService_v1.dtd";
+	
+	public static final String ACCEPT_HEADER = "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8";
 
 }
