@@ -22,6 +22,12 @@ public interface WorldpayConstants {
 	
 	public static final String PAYMENT_METHOD = "PAYMENT_METHOD";
 	
+	public static final String ERROR_CODE = "ERROR_CODE";
+	
+	public static final String ERROR_MSG = "ERROR_MSG";
+	
+	public static final String ERROR = "ERROR";
+	
 	public static final String MERCHANT_CODE = "MYMMSUS";
 	
 	public static final String QUALIFIED_NAME = "doctype";
