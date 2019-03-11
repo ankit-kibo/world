@@ -26,6 +26,7 @@ import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 
+import org.apache.commons.lang.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.info.BuildProperties;
 import org.springframework.context.annotation.Bean;
@@ -43,6 +44,7 @@ import org.w3c.dom.Element;
 import org.xml.sax.InputSource;
 
 import com.kibo.pegateway.config.WorldpayConstants;
+
 import com.mozu.api.contracts.paymentservice.extensibility.v1.CaptureRequest;
 import com.mozu.api.contracts.paymentservice.extensibility.v1.GatewayAuthorizationRequest;
 import com.mozu.api.contracts.paymentservice.extensibility.v1.GatewayAuthorizeResponse;
@@ -92,12 +94,18 @@ public class BeanProvider {
         	   if(request != null){
         	    List<KeyValueTuple> configurationList = request.getContext().getSettings();
         	    
+        	    logger.log(Level.INFO,"==configurationList=="+configurationList);	
+        	    
         	    if(configurationList != null){
         	     Iterator<KeyValueTuple> itr = configurationList.iterator();
+        	     
+        	     logger.log(Level.INFO,"==configurationList size=="+configurationList.size());
         	    
         	     while(itr.hasNext()){
         	    	KeyValueTuple KeyValueTuple = itr.next();
         	    	String key = KeyValueTuple.getKey();
+        	    	
+        	    	logger.log(Level.INFO,"==configurationList key=="+key);
         	    	
         	    	if(key.equalsIgnoreCase("username")){
            	    	   username = (String) KeyValueTuple.getValue();
@@ -158,22 +166,34 @@ public class BeanProvider {
             			if(response.contains("xml")){
             			  Map<String, Object> pareseResponse = getCardAuthResponse(response);
             			  
-            			  logger.log(Level.INFO,"==pareseResponse=="+pareseResponse);
-                    	  gatewayAuthorizeResponse.setAuthCode(pareseResponse.get(WorldpayConstants.ORDER_CODE) != null ? pareseResponse.get(WorldpayConstants.ORDER_CODE).toString() : "");
-                    	  gatewayAuthorizeResponse.setResponseCode(pareseResponse.get(WorldpayConstants.PAYMENT_METHOD) != null ? pareseResponse.get(WorldpayConstants.PAYMENT_METHOD).toString() : "");
-                    	  gatewayAuthorizeResponse.setResponseText(pareseResponse.get(WorldpayConstants.AUTH_RESPONSE) != null ? pareseResponse.get(WorldpayConstants.AUTH_RESPONSE).toString() : "");
+            			  if(pareseResponse.get(WorldpayConstants.ERROR_MSG) != null && StringUtils.isNotEmpty(WorldpayConstants.ERROR_MSG))
+            			  {
+            				  logger.log(Level.SEVERE,"==pareseResponse - Worldpay returns error code for CC auth request="+pareseResponse);
+                        	  gatewayAuthorizeResponse.setAuthCode(pareseResponse.get(WorldpayConstants.ORDER_CODE) != null ? pareseResponse.get(WorldpayConstants.ORDER_CODE).toString() : "");
+                        	  gatewayAuthorizeResponse.setResponseCode(WorldpayConstants.ERROR);
+                        	  gatewayAuthorizeResponse.setResponseText(pareseResponse.get(WorldpayConstants.ERROR_MSG) != null ? pareseResponse.get(WorldpayConstants.ERROR_MSG).toString() : "");
+            			  }
+            			  else{
+            				  logger.log(Level.INFO,"==pareseResponse=="+pareseResponse);
+                    	      gatewayAuthorizeResponse.setAuthCode(pareseResponse.get(WorldpayConstants.ORDER_CODE) != null ? pareseResponse.get(WorldpayConstants.ORDER_CODE).toString() : "");
+                    	      gatewayAuthorizeResponse.setResponseCode(pareseResponse.get(WorldpayConstants.PAYMENT_METHOD) != null ? pareseResponse.get(WorldpayConstants.PAYMENT_METHOD).toString() : "");
+                    	      gatewayAuthorizeResponse.setResponseText(pareseResponse.get(WorldpayConstants.AUTH_RESPONSE) != null ? pareseResponse.get(WorldpayConstants.AUTH_RESPONSE).toString() : "");
+                			  
+            			  }
             			}
             		}
             	 }
         	   }
         	   catch(ResourceAccessException rae){
         		 rae.printStackTrace();
-        		 gatewayAuthorizeResponse.setResponseText("Failed");
+        		 gatewayAuthorizeResponse.setResponseCode(WorldpayConstants.ERROR);
+        		 gatewayAuthorizeResponse.setResponseText(rae.getMessage());
      		     logger.log(Level.SEVERE,"==ResourceAccessException in authorize method implementation=="+rae.getMessage());
      	       }
         	   catch(Exception e){
         		  e.printStackTrace();
-        		  gatewayAuthorizeResponse.setResponseText("Failed");
+        		  gatewayAuthorizeResponse.setResponseCode(WorldpayConstants.ERROR);
+        		  gatewayAuthorizeResponse.setResponseText(e.getMessage());
         		  logger.log(Level.SEVERE,"==Exception in authorize method implementation=="+e.getMessage());
         	   }
             	
@@ -277,8 +297,10 @@ public class BeanProvider {
 					 Element paymentDetails = doc.createElement("paymentDetails");
 				     order.appendChild(paymentDetails);
 				     
-				     // It's a dynamic value and keep it hardcoded for CC for now
-				     Element paymentMethod = doc.createElement("VISA-SSL");
+				     String cardType = request.getCard().getType();
+				     
+				     // Create the payment details tag on card type basis
+				     Element paymentMethod = doc.createElement(getCardTypeTag(cardType));
 				     paymentDetails.appendChild(paymentMethod);
 				     
 				     // Credit card number
@@ -641,7 +663,7 @@ public class BeanProvider {
      * @return
      * Parse the worldpay authorization call reponse xml
      */
-    public Map<String, Object> getCardAuthResponse(String rawXML) {
+    private Map<String, Object> getCardAuthResponse(String rawXML) {
 
 		try {
 			Map<String, Object> response = new HashMap<String, Object>();
@@ -649,13 +671,19 @@ public class BeanProvider {
 			SAXParser parser = factory.newSAXParser();
 			WPCardAuthResponseSaxhandler responseSaxhandler = new WPCardAuthResponseSaxhandler();
 			parser.parse(new InputSource(new StringReader(rawXML)), responseSaxhandler);
+			
 			String authResponse = responseSaxhandler.getResponse();
 			String orderCode = responseSaxhandler.getOrderCode();
 			String paymentMethod = responseSaxhandler.getPaymentMethod();
-	
+			String errorCode = responseSaxhandler.getErrorCode();
+			String errorMsg = responseSaxhandler.getErrorMsg();
+			
 			response.put(WorldpayConstants.AUTH_RESPONSE, authResponse);
 			response.put(WorldpayConstants.ORDER_CODE, orderCode);
 			response.put(WorldpayConstants.PAYMENT_METHOD, paymentMethod);
+			response.put(WorldpayConstants.ERROR_CODE, errorCode);
+			response.put(WorldpayConstants.ERROR_MSG, errorMsg);
+			
 			return response;
 		} catch (Exception ex) {
 			logger.log(Level.SEVERE, "==ParserConfigurationException in createXmlRequest==", ex.getMessage());
@@ -663,5 +691,40 @@ public class BeanProvider {
 
 		return null;
 	}
+    
+    
+     /**
+     * @param cardType
+     * @return - cardtype tag
+     * This method is used to generate card type tag in payment details of world pay 
+     * request on the basis of card selected by user
+     */
+    private String getCardTypeTag(String cardType){
+    	  
+    	  cardType = cardType.toLowerCase();
+    	  String result;
+    	  
+          switch (cardType) { 
+          case "visa": 
+        	  result = "VISA-SSL"; 
+              break; 
+          case "mc": 
+        	  result = "ECMC-SSL"; 
+              break; 
+          case "amex": 
+        	  result = "AMEX-SSL"; 
+              break; 
+          case "other": 
+        	  result = "ECMC-SSL"; 
+              break; 
+          default: 
+        	  result = "VISA-SSL"; 
+              break; 
+          } 
+          
+          logger.log(Level.INFO,"==cardType tag=="+result);
+    	  
+    	  return result;
+      }
 }
 

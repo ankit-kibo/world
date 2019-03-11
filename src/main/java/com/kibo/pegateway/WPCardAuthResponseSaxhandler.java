@@ -16,8 +16,21 @@ public class WPCardAuthResponseSaxhandler extends DefaultHandler {
 	 private String response;
 	 private String paymentMethod;
 	 private String orderCode;
+	 private String errorCode;
+	 private String errorMsg;
 	 boolean hasResponse;
+	 boolean hasErrorResponse;
 	 private boolean hasPaymentMethod;
+	 
+	 public String getErrorCode() {
+		return errorCode;
+	}
+	public String getErrorMsg() {
+		return errorMsg;
+	}
+	public boolean isHasErrorResponse() {
+		return hasErrorResponse;
+	}
 
 	public String getResponse() {
 		return this.response;
@@ -43,7 +56,9 @@ public class WPCardAuthResponseSaxhandler extends DefaultHandler {
 		if (qName.equalsIgnoreCase("lastEvent")) {
 			hasResponse = true;
 		}
-		
+		if (qName.equalsIgnoreCase("error")) {
+			hasErrorResponse = true;
+		}
 		if (qName.equalsIgnoreCase("paymentMethod")) {
 			hasPaymentMethod = true;
 		}
@@ -61,6 +76,19 @@ public class WPCardAuthResponseSaxhandler extends DefaultHandler {
 				}
 			}
 		}
+		if (qName.equalsIgnoreCase("error")) {
+			
+			if(attributes != null && attributes.getLength() > 0) {
+				int length = attributes.getLength();
+				for (int i=0; i<length; i++) {
+					String attributeName = attributes.getQName(i);
+					String attributeValue = attributes.getValue(i);
+					if(attributeName != null && attributeName.equalsIgnoreCase("code")) {
+						errorCode = attributeValue;
+					}
+				}
+			}
+		}
 	}
 
 	/* (non-Javadoc)
@@ -72,7 +100,10 @@ public class WPCardAuthResponseSaxhandler extends DefaultHandler {
 			response = new String(ch, start, length).trim();
 			hasResponse = false;
 		}
-		
+		if (hasErrorResponse) {
+			errorMsg = new String(ch, start, length).trim();
+			hasErrorResponse = false;
+		}
 		if (hasPaymentMethod) {
 			paymentMethod = new String(ch, start, length).trim();
 			hasPaymentMethod = false;
