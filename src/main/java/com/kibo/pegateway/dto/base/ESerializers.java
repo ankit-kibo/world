@@ -25,7 +25,7 @@ import com.mozu.api.contracts.paymentservice.extensibility.v1.*;
  * 'resultClass' contains the class to override it with.
  */
 public enum ESerializers {
-    AdapterContextOverrideSerializer(AdapterContext.class, AdapterContextOverride.class),
+   // AdapterContextOverrideSerializer(AdapterContext.class, AdapterContextOverride.class),
     CaptureRequestOverrideSerializer(CaptureRequest.class, CaptureRequestOverride.class),
     GatewayAuthorizationRequestOverrideSerializer(GatewayAuthorizationRequest.class, GatewayAuthorizationRequestOverride.class),
     GatewayAuthorizeResponseOverrideSerializer(GatewayAuthorizeResponse.class, GatewayAuthorizeResponseOverride.class),
